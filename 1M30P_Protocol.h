@@ -1,5 +1,5 @@
-#ifndef CAMERACONTROLSIGNAL_H
-#define CAMERACONTROLSIGNAL_H
+#ifndef PROTOCOL_H
+#define PROTOCOL_H
 
 /***********************************************************************
  *  Using DALSA 1M30P.
@@ -112,26 +112,45 @@
 *****************************************************************/
 
 
-#define CMD_READ_CAMERA_TYPE    0xC3    // Read  Command Camera Type
-#define CMD_RESET_ADC           0x00    // Write Command Reset ADC 
-#define CMD_RESET_CAMERA        0x80    // Write Command Reset Camera
-#define CMD_WRITE_GAIN_MSB      0x06    // Write Command Gain MSB
-#define CMD_WRITE_GAIN_LSB      0x05    // Write Command Gain LSB
-#define CMD_READ_GAIN_MSB       0x46    // Read  Command Gain MSB 
-#define CMD_READ_GAIN_LSB       0x45    // Read  Command Gain LSB
-#define CMD_WRITE_OFFSET_MSB    0x03    // Write Command Offset MSB
-#define CMD_WRITE_OFFSET_LSB    0x02    // Write Command Offset LSB
-#define CMD_READ_OFFSET_MSB     0X43    // Read  Command Offset MSB
-#define CMD_READ_OFFSET_LSB     0X42    // Read  Command Offset LSB
-#define CMD_WRITE_BINNING       0x85    // Write Command Offset Binning
-#define CMD_WRITE_INTG_MSB      0x8C    // Write Command Integration Time MSB
-#define CMD_WRITE_INTG_2SB      0x8B    // Write Command Integration Time 2SB   (2SB = 2nd Significant Byte) 
-#define CMD_WRITE_INTG_LSB      0x8A    // Write Command Integration Time LSB
-#define CMD_WRITE_FPS_MSB       0x8F    // Write Command Frame Rate MSB
-#define CMD_WRITE_FPS_2SB       0x8E    // Write Command Frame Rate 2SB
-#define CMD_WRITE_FPS_LSB       0x8D    // Write Command Frame Rate LSB
+#define CMD_READ_CAMERA_TYPE        0xC3    // Read  Command Camera Type
+#define CMD_RESET_ADC               0x00    // Write Command Reset ADC
+#define CMD_RESET_CAMERA            0x80    // Write Command Reset Camera
+#define CMD_WRITE_GAIN_MSB          0x06    // Write Command Gain MSB
+#define CMD_WRITE_GAIN_LSB          0x05    // Write Command Gain LSB
+#define CMD_READ_GAIN_MSB           0x46    // Read  Command Gain MSB
+#define CMD_READ_GAIN_LSB           0x45    // Read  Command Gain LSB
+#define CMD_WRITE_OFFSET_MSB        0x03    // Write Command Offset MSB
+#define CMD_WRITE_OFFSET_LSB        0x02    // Write Command Offset LSB
+#define CMD_READ_OFFSET_MSB         0X43    // Read  Command Offset MSB
+#define CMD_READ_OFFSET_LSB         0X42    // Read  Command Offset LSB
+#define CMD_WRITE_BINNING           0x85    // Write Command Offset Binning
+#define CMD_WRITE_INTG_MSB          0x8C    // Write Command Integration Time MSB
+#define CMD_WRITE_INTG_SSB          0x8B    // Write Command Integration Time SSB   (SSB = 2nd Significant Byte)
+#define CMD_WRITE_INTG_LSB          0x8A    // Write Command Integration Time LSB
+#define CMD_WRITE_FRAMERATE_MSB     0x8F    // Write Command Frame Rate MSB
+#define CMD_WRITE_FRAMERATE_SSB     0x8E    // Write Command Frame Rate SSB
+#define CMD_WRITE_FRAMERATE_LSB     0x8D    // Write Command Frame Rate LSB
 
-#define FACTOR_GAIN             32768   // Factor multiplied to the log10(Gain)
-#define FACTOR_OFFSET           8       // Factor multiplied to Offset/Gain
+#define FACTOR_GAIN                 32768   // Factor multiplied to the log10(Gain)
+#define FACTOR_OFFSET               8       // Factor multiplied to Offset/Gain
+#define FACTOR_INTEG_COND           2160    // Factor subracted from 1/(Frame Rate) for Integration Time Condition
+#define FACTOR_S2MS                 1000000 // Factor multiplied to convert from Second to MicroSecond
 
-#endif // CAMERACONTROLSIGNAL_H
+#define MIN_GAIN                    1       // Minimum Value of Gain
+#define MAX_GAIN                    10      // Maximum Value of Gain
+
+#define MIN_OFFSET                  -4095   // Minimum Value of Offset
+#define MAX_OFFSET                  4095    // Maximum Value of Offset
+
+#define MIN_TIME                    5       // Minimum Time in microseconds for Integration Time Condition
+                                            //                                & Frame Rate Condition
+
+// Default values
+#define DEFAULT_FRAME_RATE          30      // Default frame rate in fps
+#define DEFAULT_INTG_TIME           31221   // Default integration time in microseconds
+#define DEFAULT_GAIN                1       // Default gain
+#define DEFAULT_BIN                 1       // Default bin
+#define DEFAULT_OFFSET              50      // Default offset
+
+
+#endif // PROTOCOL_H

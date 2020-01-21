@@ -3,7 +3,7 @@
 
 #ifndef BYTE
 typedef unsigned char BYTE;
-#endif
+#endif  // BYTE
 
 CameraPort::CameraPort()
 {
@@ -17,8 +17,44 @@ CameraPort::CameraPort()
     vBin = DEFAULT_BIN;
 
     connect(this, SIGNAL(readyRead()), this, SLOT(getData()));
+
+    defaultBaudRate = QSerialPort::Baud9600;
+    defaultDataBits = QSerialPort::Data8;
+    defaultStopBits = QSerialPort::OneStop;
+    defaultParity   = QSerialPort::NoParity;
+
 }
 CameraPort::~CameraPort() {}
+
+void CameraPort::openCameraPort(const QString &portName)
+{
+    setPortName(portName);
+    setBaudRate(defaultBaudRate);
+    setDataBits(defaultDataBits);
+    setStopBits(defaultStopBits);
+    setParity(defaultParity);
+    open(QIODevice::ReadWrite);
+}
+
+void CameraPort::openCameraPort(const QString &portName,
+                                QSerialPort::BaudRate baudRate,
+                                QSerialPort::DataBits dataBits,
+                                QSerialPort::StopBits stopBits,
+                                QSerialPort::Parity   parity)
+{
+    setPortName(portName);
+    setBaudRate(baudRate);
+    setDataBits(dataBits);
+    setStopBits(stopBits);
+    setParity(parity);
+    open(QIODevice::ReadWrite);
+}
+
+void CameraPort::closeCameraPort()
+{
+    close();
+}
+
 
 void CameraPort::getData()
 {
@@ -94,9 +130,29 @@ int CameraPort::getOffset()
     return offset;
 }
 
+int CameraPort::getHBin()
+{
+    return hBin;
+}
+
+int CameraPort::getVBin()
+{
+    return vBin;
+}
+
+int CameraPort::getIntegTime()
+{
+    return integrationTime;
+}
+
+float CameraPort::getFrameRate()
+{
+    return frameRate;
+}
+
 void CameraPort::adjustGain(float gain)                 // 1 <= gain <= 10
 {
-    if (gain <1 || gain > 10)
+    if (gain < MIN_GAIN || gain > MAX_GAIN)
     {
         return;
     }
@@ -116,11 +172,13 @@ void CameraPort::adjustGain(float gain)                 // 1 <= gain <= 10
     command[3] = LSB;
 
     write(command);
+
+    Gain = getGain();
 }
 
 void CameraPort::adjustOffset(float offset)             // -4095 <= offset <= 4095
 {
-    if (offset < -4095 || offset > 4095)
+    if (offset < MIN_OFFSET || offset > MAX_OFFSET)
     {
         return;
     }
@@ -143,6 +201,8 @@ void CameraPort::adjustOffset(float offset)             // -4095 <= offset <= 40
     command[3] = LSB;
 
     write(command);
+
+    Offset = getOffset();
 }
 
 void CameraPort::adjustBinning(int hbin, int vbin)      // hbin: horizontal bin, vbin: vertical bin
@@ -154,14 +214,19 @@ void CameraPort::adjustBinning(int hbin, int vbin)      // hbin: horizontal bin,
     {
     case 1:
         value += 0x1;
+        break;
     case 2:
         value += 0x2;
+        break;
     case 4:
         value += 0x4;
+        break;
     case 8:
         value += 0x0;
+        break;
     default:                // if hbin is invalid, assume hbin = 1
         value += 0x1;
+        break;
     }
 
     value = value << 4;     // shift 4 bits (= half byte)
@@ -170,20 +235,28 @@ void CameraPort::adjustBinning(int hbin, int vbin)      // hbin: horizontal bin,
     {
     case 1:
         value += 0x1;
+        break;
     case 2:
         value += 0x2;
+        break;
     case 4:
         value += 0x4;
+        break;
     case 8:
         value += 0x0;
+        break;
     default:                // if vbin is invalid, assume vbin = 1
         value += 0x1;
+        break;
     }
 
     command[0] = CMD_WRITE_BINNING;
     command[1] = value;
 
     write(command);
+
+    hBin = hbin;
+    vBin = vbin;
 }
 
 void CameraPort::adjustIntegTime(int microsec)            // adjust integration time in microseconds
@@ -194,7 +267,7 @@ void CameraPort::adjustIntegTime(int microsec)            // adjust integration 
  *      2) 5 microseconds < (integration time)
 ********************************************************************/
 
-    if (microsec < 1/frameRate - 2160 || microsec > 5)
+    if (microsec < FACTOR_SEC2NANOSEC/frameRate - FACTOR_INTEG_COND || microsec > MIN_TIME)
     {
         return;
     }
@@ -228,6 +301,8 @@ void CameraPort::adjustIntegTime(int microsec)            // adjust integration 
     command[7] = LSB;
 
     write(command);
+
+    integrationTime = microsec;
 }
 
 void CameraPort::adjustFrameRate(float FrameRate)            // adjust frame rate in fps
@@ -244,7 +319,7 @@ void CameraPort::adjustFrameRate(float FrameRate)            // adjust frame rat
  *              4x        |         88
  *              8x        |        129
 *******************************************************************/
-    if (integrationTime < (1/FrameRate)*1000000 - 2160 || (1/FrameRate)*1000000 > 5)
+    if (integrationTime < (FACTOR_S2MS/FrameRate) - FACTOR_INTEG_COND || (FACTOR_S2MS/FrameRate) > MIN_TIME)
     {
         return;
     }
@@ -273,7 +348,7 @@ void CameraPort::adjustFrameRate(float FrameRate)            // adjust frame rat
     // SSB: Second Most Significant Byte
     // LSB: Least Significant Byte
 
-    value = 1/FrameRate * 1000000;          // conversion to microseconds
+    value = FACTOR_S2MS/FrameRate;          // conversion to microseconds
 
     MSB = value & 0xFF0000;         // bit-wise AND
     SSB = value & 0x00FF00;         // bit-wise AND
@@ -299,4 +374,30 @@ void CameraPort::adjustFrameRate(float FrameRate)            // adjust frame rat
     command[7] = LSB;
 
     write(command);
+
+    frameRate = 1000000/value;
+}
+
+bool CameraPort::isGainOK(float gain)                   // returns true if gain satisfies Gain Condition
+{
+    return (MIN_GAIN <= gain) || (gain <= MAX_GAIN);
+}
+
+bool CameraPort::isOffsetOK(float offset)               // returns true if offset satisfies Offset Condition
+{
+    return (MIN_OFFSET <= offset) || (offset <= MAX_OFFSET);
+}
+
+bool CameraPort::isIntegTimeOK(int microsec)            // returns true if microsec satisifes Integration Time Condition
+{
+    bool b;
+    b =(microsec <= FACTOR_S2MS/frameRate - FACTOR_INTEG_COND) || (MIN_TIME <= microsec);
+    return b;
+}
+
+bool CameraPort::isFrameRateOK(int FrameRate)           // returns true if FrameRate satisifes Frame Rate Condition
+{
+    bool b;
+    b =(integrationTime <= FACTOR_S2MS/FrameRate - FACTOR_INTEG_COND) || (MIN_TIME <= FACTOR_S2MS/FrameRate);
+    return b;
 }
