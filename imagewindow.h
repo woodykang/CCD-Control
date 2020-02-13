@@ -49,6 +49,7 @@ private:
 
     QImage image;
     QThread* thread1;
+    volatile bool stopThread;
 };
 
 void showError(int error);
