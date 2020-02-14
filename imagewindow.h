@@ -10,6 +10,7 @@
 
 namespace Ui {
 class imageWindow;
+class grabThread;
 }
 
 class imageWindow : public QDialog
@@ -50,7 +51,24 @@ private:
     QImage image;
     QThread* thread1;
     volatile bool stopThread;
+
+    friend class grabThread;
 };
+
+class grabThread : public QThread
+{
+    Q_OBJECT
+
+public:
+    grabThread(imageWindow *imgWin);
+    ~grabThread() override;
+
+    void run() override;
+
+private:
+    imageWindow* imgWin;
+};
+
 
 void showError(int error);
 void showBox(QString str, int i);

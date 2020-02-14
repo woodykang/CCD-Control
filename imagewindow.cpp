@@ -12,6 +12,7 @@ imageWindow::imageWindow(QWidget *parent) :
 {
     ui->setupUi(this);
     thread1 = nullptr;
+    stopThread = false;
 }
 
 imageWindow::~imageWindow()
@@ -28,7 +29,7 @@ void imageWindow::startGrab()
     // Let's check that the Acquisition window is not smaller than the Canvas
     errChk(imgGetAttribute(Sid, IMG_ATTR_ROI_WIDTH, &AcqWinWidth));        // AcqWinWidht = IMG_ATTR_ROI_WIDHT
     errChk(imgGetAttribute(Sid, IMG_ATTR_ROI_HEIGHT, &AcqWinHeight));      // AcqWinHeight = IMG_ATTR_ROI_HEIGHT
-
+    
 
     // Set the ROI to the size of the Canvas so that it will fit nicely
     //errChk(imgSetAttribute2 (Sid, IMG_ATTR_ROI_WIDTH, AcqWinWidth));
@@ -50,8 +51,7 @@ void imageWindow::startGrab()
     // create a thread and run
     thread1 = QThread::create(std::bind(&imageWindow::grabAndPlot, this));
     thread1->start();
-
-    
+     
 Error :
     if(error < 0)   showError(error);
     return;
@@ -59,16 +59,19 @@ Error :
 
 void imageWindow::grabAndPlot()             // imgGrab() and imagePlot() must be on the same thread
 {
-    imgGrab(Sid, &imageBuffer, true);
+    imageBuffer = nullptr;
+    errChk(imgGrab(Sid, &imageBuffer, true));
     imagePlot();
+
+Error:
+    if (error < 0)   showError(error);
+    return;
 }
 
 void imageWindow::imagePlot()
 {
-    showBox("loc: ", 1);
     int bufferIndex = 0;
     int waitForNext = 1;    // wait until the current acquisition is complete
-    
 
     while (1)               // Plotting must repeat unless grab stops with stopGrab()
     {
@@ -89,20 +92,23 @@ void imageWindow::imagePlot()
         
         image = QImage((unsigned char*)copiedBuffer, AcqWinWidth, AcqWinHeight, QImage::Format_Grayscale16);            // create an image
         ui->imageLabel->setPixmap(QPixmap::fromImage(image));    // show the image
+
+        if (QThread::currentThread()->isInterruptionRequested()) return;
     }
 }
 
 
 void imageWindow::stopGrab()
 {
-    errChk(imgSessionStopAcquisition(Sid));
-
-    if(thread1 != nullptr)
+    thread1->requestInterruption();
+    if (!thread1->wait(3000))
     {
-        thread1->quit();
-        delete thread1;
-        thread1 = nullptr;
+        thread1->terminate();
+        thread1->wait();
     }
+    thread1 = nullptr;
+
+    errChk(imgSessionStopAcquisition(Sid));
 
     if(Sid != 0)
     {
@@ -114,11 +120,6 @@ void imageWindow::stopGrab()
         errChk(imgClose(Iid, true));
     }
     
-    if (copiedBuffer != nullptr)
-    {
-        errChk(imgDisposeBuffer(copiedBuffer));
-        copiedBuffer = nullptr;
-    }
 
 Error:
     if (error < 0)   showError(error);
@@ -127,8 +128,11 @@ Error:
 
 void imageWindow::closeEvent(QCloseEvent* e)
 {
+    showBox("Start of closeEvetn(): ", 0);
+    if (thread1 != nullptr) delete thread1;
+    showBox("Window closing event: ", 0);
+    e->accept();
     emit windowClosed();
-    e->accept();     
 }
 
 // in case of error this function will display a dialog box
@@ -144,9 +148,51 @@ void showError(int error)
 
     QMessageBox errorBox;                                   // Error Message Box
     errorBox.setFixedSize(500, 200);
-
     errorBox.critical(nullptr, "Error", ErrorMessage);   
 }
+
+
+
+
+grabThread::grabThread(imageWindow* imgWin) : imgWin(imgWin) {}
+
+grabThread::~grabThread() {}
+
+void grabThread::run()
+{
+    imgWin->imageBuffer = nullptr;
+    imgGrab(imgWin->Sid, &imgWin->imageBuffer, true);
+    
+    int bufferIndex = 0;
+    int waitForNext = 1;    // wait until the current acquisition is complete
+
+    while (1)               // Plotting must repeat unless grab stops with stopGrab()
+    {
+        imgSessionCopyBuffer(imgWin->Sid, bufferIndex, (unsigned char*)imgWin->copiedBuffer, waitForNext);    // copy the buffer
+
+        // convert 12-bit image to 16-bit image
+        int j = 0;
+        while (j < imgWin->bufferSize)
+        {
+            unsigned short value;
+            value = ((unsigned char*)imgWin->copiedBuffer)[j];
+            value += ((unsigned char*)imgWin->copiedBuffer)[j + 1] << 8;
+            value <<= 4;
+            ((unsigned char*)imgWin->copiedBuffer)[j] = (value & 0x00FF);
+            ((unsigned char*)imgWin->copiedBuffer)[j + 1] = (value & 0xFF00) >> 8;
+            j += 2;
+        }
+
+        imgWin->image = QImage((unsigned char*)imgWin->copiedBuffer, imgWin->AcqWinWidth, imgWin->AcqWinHeight, QImage::Format_Grayscale16);            // create an image
+        imgWin->ui->imageLabel->setPixmap(QPixmap::fromImage(imgWin->image));    // show the image
+
+        if (QThread::currentThread()->isInterruptionRequested()) return;
+    }
+}
+
+
+
+
 
 void showBox(QString str, int i)
 {
