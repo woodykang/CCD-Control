@@ -162,10 +162,7 @@ float CameraPort::getFrameRate()
 
 void CameraPort::adjustGain(float gain)                 // 1 <= gain <= 10
 {
-    if (gain < MIN_GAIN || gain > MAX_GAIN)
-    {
-        return;
-    }
+    if (gain < MIN_GAIN || gain > MAX_GAIN) return;
 
     QByteArray command;
     unsigned short value;
@@ -188,10 +185,7 @@ void CameraPort::adjustGain(float gain)                 // 1 <= gain <= 10
 
 void CameraPort::adjustOffset(float offset)             // -4095 <= offset <= 4095
 {
-    if (offset < MIN_OFFSET || offset > MAX_OFFSET)
-    {
-        return;
-    }
+    if (offset < MIN_OFFSET || offset > MAX_OFFSET) return;
 
     QByteArray command;
     unsigned short value;

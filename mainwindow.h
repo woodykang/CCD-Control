@@ -4,7 +4,7 @@
 #include <QMainWindow>
 #include <QSerialPortInfo>
 #include <QMessageBox>
-#include "imagewindow.h"
+#include "image.h"
 #include "CameraControl.h"
 
 QT_BEGIN_NAMESPACE
@@ -16,7 +16,7 @@ class MainWindow : public QMainWindow
     Q_OBJECT
 
 private:
-    imageWindow *imgWin;
+    image img;
     bool isConnected;
     CameraPort *port;
 
@@ -36,13 +36,16 @@ private slots:
     void serialConnect();
     void serialDisconnect();
 
-    void applySettings();
+    void applyGain();
+    void applyOffset();
+    void applyBin();
+    void applyIntegTime();
+    void applyFrameRate();
+    void applyAll();
     void resetSettings();
 
     void startGrab();
     void stopGrab();
-
-    void imageWindowClosed();
 
 public:
     Ui::MainWindow *ui;

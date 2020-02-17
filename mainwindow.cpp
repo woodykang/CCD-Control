@@ -3,23 +3,28 @@
 
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
-    , imgWin(new imageWindow)
     , port(new CameraPort)
     , ui(new Ui::MainWindow)
 {
     ui->setupUi(this);
-    //setCentralWidget(this);
+    setWindowTitle("CCD Program");
+    img = image(ui->imageLabel);
 
     // connect SIGNALS with SLOTS
     connect(ui->btnConnect, SIGNAL(clicked()), this, SLOT(serialConnect()));
     connect(ui->btnDisconnect, SIGNAL(clicked()), this, SLOT(serialDisconnect()));
-    connect(ui->btnApp, SIGNAL(clicked()), this, SLOT(applySettings()));
+
+    connect(ui->btnApplyGain, SIGNAL(clicked()), this, SLOT(applyGain()));
+    connect(ui->btnApplyOffset, SIGNAL(clicked()), this, SLOT(applyOffset()));
+    connect(ui->btnApplyBin, SIGNAL(clicked()), this, SLOT(applyBin()));
+    connect(ui->btnApplyIntegTime, SIGNAL(clicked()), this, SLOT(applyIntegTime()));
+    connect(ui->btnApplyFrameRate, SIGNAL(clicked()), this, SLOT(applyFrameRate()));
+    connect(ui->btnApplyAll, SIGNAL(clicked()), this, SLOT(applyAll()));
     connect(ui->btnReset, SIGNAL(clicked()), this, SLOT(resetSettings()));
     connect(ui->btnGrab, SIGNAL(clicked()), this, SLOT(startGrab()));
     connect(ui->btnStop, SIGNAL(clicked()), this, SLOT(stopGrab()));
     connect(ui->btnQuit, SIGNAL(clicked()), this, SLOT(close()));
-    connect(ui->boxPortList, SIGNAL(currentIndexChanged()), this, SLOT(showPortInfo()));
-    connect(imgWin, SIGNAL(imageWindow::windowClosed()), this, SLOT(imageWindowClosed()));
+    connect(ui->boxPortList, QOverload<int>::of(&QComboBox::currentIndexChanged), this, SLOT(showPortInfo()));
 
     // Fill Port List
     fillPortsInfo();
@@ -28,10 +33,12 @@ MainWindow::MainWindow(QWidget *parent)
     isConnected = false;
     ui->btnConnect->setEnabled(!isConnected);       // Button is enabled.
     ui->btnDisconnect->setEnabled(isConnected);     // Button is disabled.
+    ui->btnApplyAll->setEnabled(isConnected);            // Button is disabled.
+    ui->btnReset->setEnabled(isConnected);          // Button is disabled.
 
     isGrabbing = false;
-    ui->btnGrab->setEnabled(!isGrabbing && isConnected);
-    ui->btnStop->setEnabled( isGrabbing && isConnected);
+    ui->btnGrab->setEnabled(!isGrabbing);           // Button is enabled.
+    ui->btnStop->setEnabled( isGrabbing);           // Button is disabled.
 
     isImageWindowOn = false;
 
@@ -39,8 +46,7 @@ MainWindow::MainWindow(QWidget *parent)
 
 MainWindow::~MainWindow()
 {
-    imgWin->close();
-    delete imgWin;
+    img.~image();
     delete port;
     delete ui;
 }
@@ -49,14 +55,26 @@ void MainWindow::serialConnect()
 {
     QString portName = ui->boxPortList->currentText();
     port->openCameraPort(portName);
+    port->getCameraType();
+    if(port->cameraType == 0x41)
+    {
+        ui->groupBoxSettings->setTitle("Camera Settings - 1M30P");
+    }
+
+    else
+    {
+        ui->groupBoxSettings->setTitle("Camera Settings - Unknown Camera");
+    }
 
     isConnected = true;
     ui->btnConnect->setEnabled(!isConnected);       // button disabled
     ui->btnDisconnect->setEnabled(isConnected);     // button enabled
     ui->boxPortList->setEnabled(!isConnected);      // port selection disabled
 
-    ui->btnGrab->setEnabled(!isGrabbing && isConnected);
-    ui->btnStop->setEnabled( isGrabbing && isConnected);
+    ui->btnGrab->setEnabled(!isGrabbing);
+    ui->btnStop->setEnabled( isGrabbing);
+    ui->btnApplyAll->setEnabled(isConnected);
+    ui->btnReset->setEnabled(isConnected);
 }
 
 void MainWindow::serialDisconnect()
@@ -70,18 +88,13 @@ void MainWindow::serialDisconnect()
 
     ui->btnGrab->setEnabled(!isGrabbing && isConnected);
     ui->btnStop->setEnabled( isGrabbing && isConnected);
+    ui->btnApplyAll->setEnabled(isConnected);
+    ui->btnReset->setEnabled(isConnected);
 }
 
-void MainWindow::applySettings()
+void MainWindow::applyGain()
 {
-    float gain = ui->inputGain->text().toFloat();           // Gain
-    float offset = ui->inputOffset->text().toFloat();       // Offset
-    int hbin = ui->boxHBin->currentText().toInt();          // Horizontal Bin
-    int vbin = ui->boxVBin->currentText().toInt();          // Vertial    Bin
-    int microsec = ui->inputIntegTime->text().toInt();      // Integration Time
-    float frameRate = ui->inputFrameRate->text().toFloat(); // Frame Rate
-
-    // adjust gain
+    float gain = ui->inputGain->text().toFloat();
     if (! port->isGainOK(gain))     // Gain Range Violation
     {
         int error = -1;
@@ -89,9 +102,14 @@ void MainWindow::applySettings()
         updateSettings();
         return;
     }
-    port->adjustGain(gain);                 // 1 <= gain <= 10
+    port->adjustGain(gain);
 
-    // adjust offset
+    updateSettings();
+}
+
+void MainWindow::applyOffset()
+{
+    float offset = ui->inputOffset->text().toFloat();
     if (! port->isOffsetOK(offset)) // Offset Range Violation
     {
         int error = -2;
@@ -99,13 +117,23 @@ void MainWindow::applySettings()
         updateSettings();
         return;
     }
-    port->adjustOffset(offset);             // -4095 <= gain <= 4095
+    port->adjustOffset(offset);
 
-    // adjust binning
-    port->adjustBinning(hbin, vbin);        // hbin: horizontal bin, vbin: vertical bin
+    updateSettings();
+}
 
+void MainWindow::applyBin()
+{
+    int hbin = ui->inputHBin->currentText().toInt();          // Horizontal Bin
+    int vbin = ui->inputVBin->currentText().toInt();          // Vertial    Bin
+    port->adjustBinning(hbin, vbin);
 
-    // adjust integration time in microseconds
+    updateSettings();
+}
+
+void MainWindow::applyIntegTime()
+{
+    int microsec = ui->inputIntegTime->text().toInt();      // Integration Time in microseconds
     if (! port->isIntegTimeOK(microsec))    // Inetgration Time Condition Violation
     {
         int error = -3;
@@ -115,8 +143,12 @@ void MainWindow::applySettings()
     }
     port->adjustIntegTime(microsec);        // adjust integration time in microseconds
 
+    updateSettings();
+}
 
-    // adjust frame rate
+void MainWindow::applyFrameRate()
+{
+    float frameRate = ui->inputFrameRate->text().toFloat(); // Frame Rate
     if (! port->isFrameRateOK(frameRate))   // Frame Rate Condition Violation
     {
         int error = -4;
@@ -124,8 +156,18 @@ void MainWindow::applySettings()
         updateSettings();
         return;
     }
-    port->adjustFrameRate(frameRate);       // adjust frame rate in fps
-    
+    port->adjustFrameRate(frameRate);
+
+    updateSettings();
+}
+
+void MainWindow::applyAll()
+{
+    applyGain();
+    applyOffset();
+    applyBin();
+    applyIntegTime();
+    applyFrameRate();
 }
 
 void MainWindow::resetSettings()
@@ -143,39 +185,28 @@ void MainWindow::updateSettings()
     int msec = port->getIntegTime();
     float frameRate = port->getFrameRate();
 
-    ui->inputGain->setValue(gain);
-    ui->inputOffset->setValue(offset);
-    ui->boxHBin->setCurrentText(QString(hBin));
-    ui->boxVBin->setCurrentText(QString(vBin));
-    ui->inputIntegTime->setValue(msec);
-    ui->inputFrameRate->setValue(frameRate);
+    ui->currentGain->setText(QString::number(gain));
+    ui->currentOffset->setText(QString::number(offset));
+    ui->currentHBin->setText(QString::number(hBin));
+    ui->currentVBin->setText(QString::number(vBin));
+    ui->currentIntegTime->setText(QString::number(msec));
+    ui->currentFrameRate->setText(QString::number(frameRate));
 }
 
 void MainWindow::startGrab()
 {
-    if (!isImageWindowOn)   imgWin->show();
-    isImageWindowOn = true;
-
-    imgWin->startGrab();
+    img.startGrab();
     isGrabbing = true;
-
-    ui->btnGrab->setEnabled(!isGrabbing && isConnected);
-    ui->btnStop->setEnabled( isGrabbing && isConnected);
+    ui->btnGrab->setEnabled(!isGrabbing);
+    ui->btnStop->setEnabled( isGrabbing);
 }
 
 void MainWindow::stopGrab()
 {
-    imgWin->stopGrab();
+    img.stopGrab();
     isGrabbing = false;
-
-    ui->btnGrab->setEnabled(!isGrabbing && isConnected);
-    ui->btnStop->setEnabled( isGrabbing && isConnected);
-}
-
-void MainWindow::imageWindowClosed()
-{
-    isImageWindowOn = false;
-    if (isGrabbing)  stopGrab();
+    ui->btnGrab->setEnabled(!isGrabbing);
+    ui->btnStop->setEnabled( isGrabbing);
 }
 
 void MainWindow::fillPortsInfo()

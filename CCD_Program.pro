@@ -17,19 +17,18 @@ DEFINES += QT_DEPRECATED_WARNINGS
 
 SOURCES += \
     CameraControl.cpp \
-    imagewindow.cpp \
+    image.cpp \
     main.cpp \
     mainwindow.cpp
 
 HEADERS += \
     1M30P_Protocol.h \
     CameraControl.h \
-    imagewindow.h \
+    image.h \
     mainwindow.h \
     niimaq.h
 
 FORMS += \
-    imagewindow.ui \
     mainwindow.ui
 
 # Default rules for deployment.

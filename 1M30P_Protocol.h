@@ -73,9 +73,13 @@
  *  10. Setting Integration Time
  *      !! IMPORTANT !!
  *          1) Integration time  <  [1/fps - (transfer time)].
- *             A safe value for the transfer time is 
- *             2160 microseconds regardless of the binning.
- *             Refer to the manual for detailed information.
+ *             The user manual states that a safe value for the
+ *             transfer time is 2160 microseconds regardless of
+ *             the binning. However, using 2160 microseconds does
+ *             not allow the default value of the integration time
+ *             and the frame rate. Thus, a value of 2112 will be
+ *             used for the transfer time.
+ *             
  *          2) Integration time > 5 microseconds.
  *          3) Default Integration Time : 31.221 ms
  * 
@@ -133,7 +137,7 @@
 
 #define FACTOR_GAIN                 32768   // Factor multiplied to the log10(Gain)
 #define FACTOR_OFFSET               8       // Factor multiplied to Offset/Gain
-#define FACTOR_INTEG_COND           2160    // Factor subracted from 1/(Frame Rate) for Integration Time Condition
+#define FACTOR_INTEG_COND           2112    // Factor subracted from 1/(Frame Rate) for Integration Time Condition
 #define FACTOR_S2MS                 1000000 // Factor multiplied to convert from Second to MicroSecond
 
 #define MIN_GAIN                    1       // Minimum Value of Gain

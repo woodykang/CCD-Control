@@ -15,7 +15,7 @@ class CameraPort : public QSerialPort
 
 private:
     QByteArray Output;      // reply from camera communication
-    int cameraType;         // Camera Type in hex code
+
     int hBin;               // horizontal binning. either 1, 2, 4, or 8
     int vBin;               // vertical   binning. either 1, 2, 4, or 8
     int Gain;               // gain
@@ -32,6 +32,8 @@ private slots:
     void getData();         // reads the reply and saves it in ouput
 
 public:
+    int cameraType;         // Camera Type in hex code
+
     CameraPort(QSerialPort *parent = nullptr);
     ~CameraPort();
 
