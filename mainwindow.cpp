@@ -24,9 +24,9 @@ MainWindow::MainWindow(QWidget *parent)
     connect(ui->btnGrab, SIGNAL(clicked()), this, SLOT(startGrab()));
     connect(ui->btnStop, SIGNAL(clicked()), this, SLOT(stopGrab()));
     connect(ui->btnQuit, SIGNAL(clicked()), this, SLOT(close()));
-    connect(ui->boxPortList, QOverload<int>::of(&QComboBox::currentIndexChanged), this, SLOT(showPortInfo()));
+    connect(ui->btnChooseDir, SIGNAL(clicked()), this, SLOT(setDir()));
+    connect(ui->btnSave, SIGNAL(clicked()), this, SLOT(saveImage()));
 
-    // Fill Port List
     fillPortsInfo();
 
     // Wether camera is connected (== port is opend) or not
@@ -40,7 +40,8 @@ MainWindow::MainWindow(QWidget *parent)
     ui->btnGrab->setEnabled(!isGrabbing);           // Button is enabled.
     ui->btnStop->setEnabled( isGrabbing);           // Button is disabled.
 
-    isImageWindowOn = false;
+    dir = QDir::currentPath();                      // Default path is the working directory
+    ui->inputDir->setText(dir);                     // show the directory address
 
 }
 
@@ -50,6 +51,34 @@ MainWindow::~MainWindow()
     delete port;
     delete ui;
 }
+
+void MainWindow::fillPortsInfo()
+{
+    ui->boxPortList->clear();
+    QString description;
+    QString manufacturer;
+    QString serialNumber;
+    QString blankString = "";
+    const auto infos = QSerialPortInfo::availablePorts();
+    for (const QSerialPortInfo& info : infos) {
+        QStringList list;
+        description = info.description();
+        manufacturer = info.manufacturer();
+        serialNumber = info.serialNumber();
+        list << info.portName()
+            << (!description.isEmpty() ? description : blankString)
+            << (!manufacturer.isEmpty() ? manufacturer : blankString)
+            << (!serialNumber.isEmpty() ? serialNumber : blankString)
+            << info.systemLocation()
+            << (info.vendorIdentifier() ? QString::number(info.vendorIdentifier(), 16) : blankString)
+            << (info.productIdentifier() ? QString::number(info.productIdentifier(), 16) : blankString);
+
+        ui->boxPortList->addItem(list.first(), list);
+    }
+
+    ui->boxPortList->addItem(tr("Custom"));
+}
+
 
 void MainWindow::serialConnect()
 {
@@ -209,46 +238,22 @@ void MainWindow::stopGrab()
     ui->btnStop->setEnabled( isGrabbing);
 }
 
-void MainWindow::fillPortsInfo()
+void MainWindow::setDir()
 {
-    ui->boxPortList->clear();
-    QString description;
-    QString manufacturer;
-    QString serialNumber;
-    QString blankString = "";
-    const auto infos = QSerialPortInfo::availablePorts();
-    for (const QSerialPortInfo &info : infos) {
-        QStringList list;
-        description = info.description();
-        manufacturer = info.manufacturer();
-        serialNumber = info.serialNumber();
-        list << info.portName()
-             << (!description.isEmpty() ? description : blankString)
-             << (!manufacturer.isEmpty() ? manufacturer : blankString)
-             << (!serialNumber.isEmpty() ? serialNumber : blankString)
-             << info.systemLocation()
-             << (info.vendorIdentifier() ? QString::number(info.vendorIdentifier(), 16) : blankString)
-             << (info.productIdentifier() ? QString::number(info.productIdentifier(), 16) : blankString);
-
-        ui->boxPortList->addItem(list.first(), list);
-    }
-
-    ui->boxPortList->addItem(tr("Custom"));
+//-- need to change so that user input into inputDir is accecpted 
+    dir = QFileDialog::getExistingDirectory(this, tr("Open Directory"), "/home", QFileDialog::ShowDirsOnly | QFileDialog::DontResolveSymlinks);     // Choose directory to save image
+    ui->inputDir->setText(dir);     // show directory
 }
 
-void MainWindow::showPortInfo(int idx)
+void MainWindow::saveImage()
 {
-    if (idx == -1)
-        return;
-
-    QString blankString = "";
-    const QStringList list = ui->boxPortList->itemData(idx).toStringList();
-    ui->labelPortDescription->setText(tr("Description: %1").arg(list.count() > 1 ? list.at(1) : blankString));
-    ui->labelPortManufacturer->setText(tr("Manufacturer: %1").arg(list.count() > 2 ? list.at(2) : blankString));
-    ui->labelPortSerialNum->setText(tr("Serial number: %1").arg(list.count() > 3 ? list.at(3) : blankString));
-    ui->labelPortLoc->setText(tr("Location: %1").arg(list.count() > 4 ? list.at(4) : blankString));
-    ui->labelPortVendorID->setText(tr("Vendor Identifier: %1").arg(list.count() > 5 ? list.at(5) : blankString));
-    ui->labelPortProductID->setText(tr("Product Identifier: %1").arg(list.count() > 6 ? list.at(6) : blankString));
+    int nFrame = ui->inputNFrame->value();      // number of frames to be saved
+    float gain = port->getGain();
+    int   hBin = port->getHBin();
+    int   vBin = port->getVBin();
+    float frameRate = port->getFrameRate();
+    float integTime = port->getIntegTime();
+    img.save(dir, nFrame, gain, hBin, vBin, frameRate, integTime);                      // save image to directory
 }
 
 void MainWindow::showErrorMsg(int error)

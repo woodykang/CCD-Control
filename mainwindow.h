@@ -3,6 +3,8 @@
 
 #include <QMainWindow>
 #include <QSerialPortInfo>
+#include <QFileDialog>
+#include <QDateTime>
 #include <QMessageBox>
 #include "image.h"
 #include "CameraControl.h"
@@ -17,14 +19,13 @@ class MainWindow : public QMainWindow
 
 private:
     image img;
-    bool isConnected;
     CameraPort *port;
+    QString dir;
 
+    bool isConnected;
     bool isGrabbing;
-    bool isImageWindowOn;
 
     void fillPortsInfo();
-    void showPortInfo(int idx);
     void updateSettings();
     void showErrorMsg(int error);
 
@@ -46,6 +47,9 @@ private slots:
 
     void startGrab();
     void stopGrab();
+
+    void setDir();
+    void saveImage();
 
 public:
     Ui::MainWindow *ui;

@@ -24,7 +24,9 @@ SOURCES += \
 HEADERS += \
     1M30P_Protocol.h \
     CameraControl.h \
+    fitsio.h \
     image.h \
+    longnam.h \
     mainwindow.h \
     niimaq.h
 

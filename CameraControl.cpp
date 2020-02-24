@@ -7,6 +7,7 @@ typedef unsigned char BYTE;
 
 CameraPort::CameraPort(QSerialPort* parent) : QSerialPort(parent)
 {
+    cameraType = NULL;
     frameRate = DEFAULT_FRAME_RATE;
     integrationTime = DEFAULT_INTG_TIME;
 
@@ -102,6 +103,7 @@ void CameraPort::resetCamera()
 
 int CameraPort::getGain()
 {
+/*
     QByteArray command;
     int gain = 0;
 
@@ -116,13 +118,14 @@ int CameraPort::getGain()
     gain = gain << 8;       // shift 8 bits (= 1 byte)
 
     gain += Output[1];      // LSB
-
-    return gain;
+*/
+    return Gain;
 }
 
 
 int CameraPort::getOffset()
 {
+/*
     QByteArray command;
     int offset = 0;
 
@@ -136,8 +139,8 @@ int CameraPort::getOffset()
     offset += Output[0];    // MSB
     offset = offset << 8;   // shift 8 bits (= 1 byte)
     offset += Output[1];     // LSB
-
-    return offset;
+*/
+    return Offset;
 }
 
 int CameraPort::getHBin()
@@ -180,7 +183,8 @@ void CameraPort::adjustGain(float gain)                 // 1 <= gain <= 10
 
     write(command);
 
-    Gain = getGain();
+    //Gain = getGain();
+    Gain = gain;
 }
 
 void CameraPort::adjustOffset(float offset)             // -4095 <= offset <= 4095
@@ -203,7 +207,8 @@ void CameraPort::adjustOffset(float offset)             // -4095 <= offset <= 40
 
     write(command);
 
-    Offset = getOffset();
+    //Offset = getOffset();
+    Offset = offset;
 }
 
 void CameraPort::adjustBinning(int hbin, int vbin)      // hbin: horizontal bin, vbin: vertical bin

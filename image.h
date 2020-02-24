@@ -6,7 +6,9 @@
 #include <QImage>
 #include <QLabel>
 #include <QThread>
+#include <QDateTime>
 #include "niimaq.h"
+#include "fitsio.h"
 
 class image
 {
@@ -18,6 +20,7 @@ public:
     void stopGrab();
     void imagePlot();
     void grabAndPlot();
+    void save(QString dir, int nFrame, float gain, int hBin, int vBin, float frameRate, float integTime);
 
 private:
     QImage img;
@@ -38,8 +41,10 @@ private:
     unsigned long bufferSize;
 
     QThread* thread1;
+
+    void showError(int error);
 };
 
-void showError(int error);
+void showBox(QString content);
 
 #endif // IMAGE_H
