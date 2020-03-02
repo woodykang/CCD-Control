@@ -7,6 +7,7 @@ typedef unsigned char BYTE;
 
 CameraPort::CameraPort(QSerialPort* parent) : QSerialPort(parent)
 {
+    cameraType = NULL;
     frameRate = DEFAULT_FRAME_RATE;
     integrationTime = DEFAULT_INTG_TIME;
 
@@ -68,6 +69,7 @@ void CameraPort::getCameraType()
     command[0] = (BYTE) CMD_READ_CAMERA_TYPE;
 
     write(command);
+    waitForReadyRead(1000);
     cameraType = Output[0];
 }
 
@@ -102,6 +104,7 @@ void CameraPort::resetCamera()
 
 int CameraPort::getGain()
 {
+/*
     QByteArray command;
     int gain = 0;
 
@@ -116,13 +119,14 @@ int CameraPort::getGain()
     gain = gain << 8;       // shift 8 bits (= 1 byte)
 
     gain += Output[1];      // LSB
-
-    return gain;
+*/
+    return Gain;
 }
 
 
 int CameraPort::getOffset()
 {
+/*
     QByteArray command;
     int offset = 0;
 
@@ -136,8 +140,8 @@ int CameraPort::getOffset()
     offset += Output[0];    // MSB
     offset = offset << 8;   // shift 8 bits (= 1 byte)
     offset += Output[1];     // LSB
-
-    return offset;
+*/
+    return Offset;
 }
 
 int CameraPort::getHBin()
@@ -162,7 +166,7 @@ float CameraPort::getFrameRate()
 
 void CameraPort::adjustGain(float gain)                 // 1 <= gain <= 10
 {
-    if (gain < MIN_GAIN || gain > MAX_GAIN) return;
+    if (!isGainOK(gain))    return;
 
     QByteArray command;
     unsigned short value;
@@ -180,12 +184,13 @@ void CameraPort::adjustGain(float gain)                 // 1 <= gain <= 10
 
     write(command);
 
-    Gain = getGain();
+    //Gain = getGain();
+    Gain = gain;
 }
 
 void CameraPort::adjustOffset(float offset)             // -4095 <= offset <= 4095
 {
-    if (offset < MIN_OFFSET || offset > MAX_OFFSET) return;
+    if (!isOffsetOK(offset))    return;
 
     QByteArray command;
     unsigned short value;
@@ -203,7 +208,8 @@ void CameraPort::adjustOffset(float offset)             // -4095 <= offset <= 40
 
     write(command);
 
-    Offset = getOffset();
+    //Offset = getOffset();
+    Offset = offset;
 }
 
 void CameraPort::adjustBinning(int hbin, int vbin)      // hbin: horizontal bin, vbin: vertical bin
@@ -263,16 +269,7 @@ void CameraPort::adjustBinning(int hbin, int vbin)      // hbin: horizontal bin,
 
 void CameraPort::adjustIntegTime(int microsec)            // adjust integration time in microseconds
 {
-/********************************************************************
- * Integration time must satisfy
- *      1) (integration time) < 1/(frame rate) - 2160 microseconds
- *      2) 5 microseconds < (integration time)
-********************************************************************/
-
-    if (microsec > FACTOR_S2MS/frameRate - FACTOR_INTEG_COND || microsec < MIN_TIME)
-    {
-        return;
-    }
+    if (!isIntegTimeOK(microsec))   return;
 
     QByteArray command;
     BYTE MSB, SSB, LSB;
@@ -309,45 +306,7 @@ void CameraPort::adjustIntegTime(int microsec)            // adjust integration 
 
 void CameraPort::adjustFrameRate(float FrameRate)            // adjust frame rate in fps
 {
-/*******************************************************************
- * Frame rate must satisfy:
- *      1) (integration time) < 1/(frame rate) - 2160 microseconds
- *      2) 5 microseconds < 1/(frame rate)
- *      3) (frame rate) < (maximum frame rate)
- *      Vertical Binning  |  Max Frame Rate
- *      --------------------------------------
- *              1x        |         30
- *              2x        |         54
- *              4x        |         88
- *              8x        |        129
-*******************************************************************/
-    if (integrationTime > (FACTOR_S2MS/FrameRate) - FACTOR_INTEG_COND || (FACTOR_S2MS/FrameRate) < MIN_TIME)
-    {
-        return;
-    }
-
-    switch (vBin)
-    {
-    case 1:
-        if (FrameRate > 30) return;
-        break;
-
-    case 2:
-        if (FrameRate > 54) return;
-        break;
-
-    case 4:
-        if (FrameRate > 88) return;
-        break;
-
-    case 8:
-        if (FrameRate > 129) return;
-        break;
-
-    default:
-        if (FrameRate > 30) return;
-        break;
-    }
+    if (!isFrameRateOK(FrameRate))  return;
 
     QByteArray command;
     unsigned int value;
@@ -398,6 +357,12 @@ bool CameraPort::isOffsetOK(float offset)               // returns true if offse
 
 bool CameraPort::isIntegTimeOK(int microsec)            // returns true if microsec satisifes Integration Time Condition
 {
+/********************************************************************
+    * Integration time must satisfy
+    *      1) (integration time) < 1/(frame rate) - 2160 microseconds
+    *      2) 5 microseconds < (integration time)
+********************************************************************/
+
     bool b;
     b = (microsec <= (float)FACTOR_S2MS/frameRate - (float)FACTOR_INTEG_COND) && (MIN_TIME <= microsec);
     return b;
@@ -405,7 +370,44 @@ bool CameraPort::isIntegTimeOK(int microsec)            // returns true if micro
 
 bool CameraPort::isFrameRateOK(int FrameRate)           // returns true if FrameRate satisifes Frame Rate Condition
 {
+/*******************************************************************
+ * Frame rate must satisfy:
+ *      1) (integration time) < 1/(frame rate) - 2160 microseconds
+ *      2) 5 microseconds < 1/(frame rate)
+ *      3) (frame rate) < (maximum frame rate)
+ *      Vertical Binning  |  Max Frame Rate
+ *      --------------------------------------
+ *              1x        |         30
+ *              2x        |         54
+ *              4x        |         88
+ *              8x        |        129
+*******************************************************************/
     bool b;
+
     b = (integrationTime <= (float)FACTOR_S2MS/FrameRate - FACTOR_INTEG_COND) && (MIN_TIME <= FACTOR_S2MS/FrameRate);
+
+    switch (vBin)
+    {
+    case 1:
+        if (FrameRate > 30) b = false;
+        break;
+
+    case 2:
+        if (FrameRate > 54) b = false;
+        break;
+
+    case 4:
+        if (FrameRate > 88) b = false;
+        break;
+
+    case 8:
+        if (FrameRate > 129) b = false;
+        break;
+
+    default:
+        if (FrameRate > 30) b = false;
+        break;
+    }
+
     return b;
 }

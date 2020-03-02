@@ -156,5 +156,8 @@
 #define DEFAULT_BIN                 1       // Default bin
 #define DEFAULT_OFFSET              50      // Default offset
 
+#define DEFAULT_WIDTH               1024    // Number of pixels in width
+#define DEFAULT_HEIGHT              1024    // Number of pixels in height
+
 
 #endif // PROTOCOL_H

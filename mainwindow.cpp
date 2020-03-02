@@ -24,23 +24,37 @@ MainWindow::MainWindow(QWidget *parent)
     connect(ui->btnGrab, SIGNAL(clicked()), this, SLOT(startGrab()));
     connect(ui->btnStop, SIGNAL(clicked()), this, SLOT(stopGrab()));
     connect(ui->btnQuit, SIGNAL(clicked()), this, SLOT(close()));
-    connect(ui->boxPortList, QOverload<int>::of(&QComboBox::currentIndexChanged), this, SLOT(showPortInfo()));
+    connect(ui->btnChooseDir, SIGNAL(clicked()), this, SLOT(setDir()));
+    connect(ui->inputDir, SIGNAL(editingFinished()), this, SLOT(getInputDir()));
 
-    // Fill Port List
+    connect(ui->btnSingleFrame, SIGNAL(clicked()), this, SLOT(modeSingleFrame()));
+    connect(ui->btnBurst, SIGNAL(clicked()), this, SLOT(modeBurst()));
+
+    connect(ui->btnSave, SIGNAL(clicked()), this, SLOT(saveImage()));
+
     fillPortsInfo();
 
     // Wether camera is connected (== port is opend) or not
     isConnected = false;
     ui->btnConnect->setEnabled(!isConnected);       // Button is enabled.
     ui->btnDisconnect->setEnabled(isConnected);     // Button is disabled.
-    ui->btnApplyAll->setEnabled(isConnected);            // Button is disabled.
+    ui->btnApplyGain->setEnabled(isConnected);
+    ui->btnApplyOffset->setEnabled(isConnected);
+    ui->btnApplyBin->setEnabled(isConnected);
+    ui->btnApplyIntegTime->setEnabled(isConnected);
+    ui->btnApplyFrameRate->setEnabled(isConnected);
+    ui->btnApplyAll->setEnabled(isConnected);       // Button is disabled.
     ui->btnReset->setEnabled(isConnected);          // Button is disabled.
 
     isGrabbing = false;
     ui->btnGrab->setEnabled(!isGrabbing);           // Button is enabled.
     ui->btnStop->setEnabled( isGrabbing);           // Button is disabled.
 
-    isImageWindowOn = false;
+    modeSingleFrame();
+    ui->btnSave->setEnabled(isGrabbing);
+
+    dir = QDir::currentPath();                      // Default path is the working directory
+    ui->inputDir->setText(dir);                     // show the directory address
 
 }
 
@@ -50,6 +64,34 @@ MainWindow::~MainWindow()
     delete port;
     delete ui;
 }
+
+void MainWindow::fillPortsInfo()
+{
+    ui->boxPortList->clear();
+    QString description;
+    QString manufacturer;
+    QString serialNumber;
+    QString blankString = "";
+    const auto infos = QSerialPortInfo::availablePorts();
+    for (const QSerialPortInfo& info : infos) {
+        QStringList list;
+        description = info.description();
+        manufacturer = info.manufacturer();
+        serialNumber = info.serialNumber();
+        list << info.portName()
+            << (!description.isEmpty() ? description : blankString)
+            << (!manufacturer.isEmpty() ? manufacturer : blankString)
+            << (!serialNumber.isEmpty() ? serialNumber : blankString)
+            << info.systemLocation()
+            << (info.vendorIdentifier() ? QString::number(info.vendorIdentifier(), 16) : blankString)
+            << (info.productIdentifier() ? QString::number(info.productIdentifier(), 16) : blankString);
+
+        ui->boxPortList->addItem(list.first(), list);
+    }
+
+    ui->boxPortList->addItem(tr("Custom"));
+}
+
 
 void MainWindow::serialConnect()
 {
@@ -73,6 +115,11 @@ void MainWindow::serialConnect()
 
     ui->btnGrab->setEnabled(!isGrabbing);
     ui->btnStop->setEnabled( isGrabbing);
+    ui->btnApplyGain->setEnabled(isConnected);
+    ui->btnApplyOffset->setEnabled(isConnected);
+    ui->btnApplyBin->setEnabled(isConnected);
+    ui->btnApplyIntegTime->setEnabled(isConnected);
+    ui->btnApplyFrameRate->setEnabled(isConnected);
     ui->btnApplyAll->setEnabled(isConnected);
     ui->btnReset->setEnabled(isConnected);
 }
@@ -88,6 +135,11 @@ void MainWindow::serialDisconnect()
 
     ui->btnGrab->setEnabled(!isGrabbing && isConnected);
     ui->btnStop->setEnabled( isGrabbing && isConnected);
+    ui->btnApplyGain->setEnabled(isConnected);
+    ui->btnApplyOffset->setEnabled(isConnected);
+    ui->btnApplyBin->setEnabled(isConnected);
+    ui->btnApplyIntegTime->setEnabled(isConnected);
+    ui->btnApplyFrameRate->setEnabled(isConnected);
     ui->btnApplyAll->setEnabled(isConnected);
     ui->btnReset->setEnabled(isConnected);
 }
@@ -126,9 +178,12 @@ void MainWindow::applyBin()
 {
     int hbin = ui->inputHBin->currentText().toInt();          // Horizontal Bin
     int vbin = ui->inputVBin->currentText().toInt();          // Vertial    Bin
-    port->adjustBinning(hbin, vbin);
 
+    if (isGrabbing) stopGrab();
+
+    port->adjustBinning(hbin, vbin);
     updateSettings();
+    startGrab();
 }
 
 void MainWindow::applyIntegTime()
@@ -195,10 +250,13 @@ void MainWindow::updateSettings()
 
 void MainWindow::startGrab()
 {
-    img.startGrab();
+    int hbin = ui->currentHBin->text().toInt();
+    int vbin = ui->currentVBin->text().toInt();
+    img.startGrab(hbin, vbin);
     isGrabbing = true;
     ui->btnGrab->setEnabled(!isGrabbing);
     ui->btnStop->setEnabled( isGrabbing);
+    ui->btnSave->setEnabled(isGrabbing);
 }
 
 void MainWindow::stopGrab()
@@ -207,48 +265,67 @@ void MainWindow::stopGrab()
     isGrabbing = false;
     ui->btnGrab->setEnabled(!isGrabbing);
     ui->btnStop->setEnabled( isGrabbing);
+    ui->btnSave->setEnabled(isGrabbing);
 }
 
-void MainWindow::fillPortsInfo()
+void MainWindow::setDir()
 {
-    ui->boxPortList->clear();
-    QString description;
-    QString manufacturer;
-    QString serialNumber;
-    QString blankString = "";
-    const auto infos = QSerialPortInfo::availablePorts();
-    for (const QSerialPortInfo &info : infos) {
-        QStringList list;
-        description = info.description();
-        manufacturer = info.manufacturer();
-        serialNumber = info.serialNumber();
-        list << info.portName()
-             << (!description.isEmpty() ? description : blankString)
-             << (!manufacturer.isEmpty() ? manufacturer : blankString)
-             << (!serialNumber.isEmpty() ? serialNumber : blankString)
-             << info.systemLocation()
-             << (info.vendorIdentifier() ? QString::number(info.vendorIdentifier(), 16) : blankString)
-             << (info.productIdentifier() ? QString::number(info.productIdentifier(), 16) : blankString);
+//-- need to change so that user input into inputDir is accecpted 
+    dir = QFileDialog::getExistingDirectory(this, tr("Open Directory"), "/home", QFileDialog::ShowDirsOnly | QFileDialog::DontResolveSymlinks);     // Choose directory to save image
+    ui->inputDir->setText(dir);     // show directory
+}
 
-        ui->boxPortList->addItem(list.first(), list);
+void MainWindow::getInputDir()
+{
+    dir = ui->inputDir->text();
+}
+
+void MainWindow::modeSingleFrame()
+{
+    isSingleFrame = true;
+    isBurst = false;
+
+    ui->inputTimeIntv->setEnabled(isSingleFrame);
+    ui->inputNFrame->setEnabled(isSingleFrame);
+    ui->inputFramePerFile->setEnabled(isBurst);
+    ui->inputNFile->setEnabled(isBurst);
+}
+
+void MainWindow::modeBurst()
+{
+    isSingleFrame = false;
+    isBurst = true;
+
+    ui->inputTimeIntv->setEnabled(isSingleFrame);
+    ui->inputNFrame->setEnabled(isSingleFrame);
+    ui->inputFramePerFile->setEnabled(isBurst);
+    ui->inputNFile->setEnabled(isBurst);
+}
+
+void MainWindow::saveImage()
+{
+    int nFrame = ui->inputNFrame->value();      // number of frames to be saved
+    float gain = port->getGain();
+    int   hBin = port->getHBin();
+    int   vBin = port->getVBin();
+    float frameRate = port->getFrameRate();
+    float integTime = port->getIntegTime();
+
+    if (isSingleFrame)
+    {
+        int timeIntv = ui->inputTimeIntv->value();
+        int nFrame = ui->inputNFrame->value();
+        img.saveSingleFrame(dir, timeIntv, nFrame, gain, hBin, vBin, frameRate, integTime);
     }
 
-    ui->boxPortList->addItem(tr("Custom"));
-}
+    else if (isBurst)
+    {
+        int FramePerFile = ui->inputFramePerFile->value();
+        int nFile = ui->inputNFile->value();
+        img.saveBurst(dir, FramePerFile, nFile, gain, hBin, vBin, frameRate, integTime);
+    }
 
-void MainWindow::showPortInfo(int idx)
-{
-    if (idx == -1)
-        return;
-
-    QString blankString = "";
-    const QStringList list = ui->boxPortList->itemData(idx).toStringList();
-    ui->labelPortDescription->setText(tr("Description: %1").arg(list.count() > 1 ? list.at(1) : blankString));
-    ui->labelPortManufacturer->setText(tr("Manufacturer: %1").arg(list.count() > 2 ? list.at(2) : blankString));
-    ui->labelPortSerialNum->setText(tr("Serial number: %1").arg(list.count() > 3 ? list.at(3) : blankString));
-    ui->labelPortLoc->setText(tr("Location: %1").arg(list.count() > 4 ? list.at(4) : blankString));
-    ui->labelPortVendorID->setText(tr("Vendor Identifier: %1").arg(list.count() > 5 ? list.at(5) : blankString));
-    ui->labelPortProductID->setText(tr("Product Identifier: %1").arg(list.count() > 6 ? list.at(6) : blankString));
+    img.save(dir, nFrame, gain, hBin, vBin, frameRate, integTime);                      // save image to directory
 }
 
 void MainWindow::showErrorMsg(int error)

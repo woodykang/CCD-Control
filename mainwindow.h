@@ -3,6 +3,8 @@
 
 #include <QMainWindow>
 #include <QSerialPortInfo>
+#include <QFileDialog>
+#include <QDateTime>
 #include <QMessageBox>
 #include "image.h"
 #include "CameraControl.h"
@@ -16,21 +18,28 @@ class MainWindow : public QMainWindow
     Q_OBJECT
 
 private:
+    // Member Variables
     image img;
-    bool isConnected;
     CameraPort *port;
+    QString dir;
 
+    bool isConnected;
     bool isGrabbing;
-    bool isImageWindowOn;
 
+    bool isSingleFrame;
+    bool isBurst;
+
+    // Member Functions
     void fillPortsInfo();
-    void showPortInfo(int idx);
     void updateSettings();
     void showErrorMsg(int error);
 
 public:
     MainWindow(QWidget *parent = nullptr);
     ~MainWindow();
+
+public:
+    Ui::MainWindow *ui;
 
 private slots:
     void serialConnect();
@@ -47,7 +56,12 @@ private slots:
     void startGrab();
     void stopGrab();
 
-public:
-    Ui::MainWindow *ui;
+    void setDir();
+    void getInputDir();
+
+    void modeSingleFrame();
+    void modeBurst();
+
+    void saveImage();
 };
 #endif // MAINWINDOW_H
