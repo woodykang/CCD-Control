@@ -16,14 +16,14 @@ DEFINES += QT_DEPRECATED_WARNINGS
 #DEFINES += QT_DISABLE_DEPRECATED_BEFORE=0x060000    # disables all the APIs deprecated before Qt 6.0.0
 
 SOURCES += \
-    CameraControl.cpp \
+    CameraPort.cpp \
     image.cpp \
     main.cpp \
     mainwindow.cpp
 
 HEADERS += \
     1M30P_Protocol.h \
-    CameraControl.h \
+    CameraPort.h \
     fitsio.h \
     image.h \
     longnam.h \

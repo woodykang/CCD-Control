@@ -115,7 +115,6 @@
  *
 *****************************************************************/
 
-
 #define CMD_READ_CAMERA_TYPE        0xC3    // Read  Command Camera Type
 #define CMD_RESET_ADC               0x00    // Write Command Reset ADC
 #define CMD_RESET_CAMERA            0x80    // Write Command Reset Camera
@@ -128,6 +127,10 @@
 #define CMD_READ_OFFSET_MSB         0X43    // Read  Command Offset MSB
 #define CMD_READ_OFFSET_LSB         0X42    // Read  Command Offset LSB
 #define CMD_WRITE_BINNING           0x85    // Write Command Offset Binning
+#define CMD_WRITE_BIN_X1            0x01    // Write Value   Binning x1
+#define CMD_WRITE_BIN_X2            0x02    // Write Value   Binning x2
+#define CMD_WRITE_BIN_X4            0x04    // Write Value   Binning x4
+#define CMD_WRITE_BIN_X8            0x00    // Write Value   Binning x8
 #define CMD_WRITE_INTG_MSB          0x8C    // Write Command Integration Time MSB
 #define CMD_WRITE_INTG_SSB          0x8B    // Write Command Integration Time SSB   (SSB = 2nd Significant Byte)
 #define CMD_WRITE_INTG_LSB          0x8A    // Write Command Integration Time LSB
@@ -158,6 +161,5 @@
 
 #define DEFAULT_WIDTH               1024    // Number of pixels in width
 #define DEFAULT_HEIGHT              1024    // Number of pixels in height
-
 
 #endif // PROTOCOL_H

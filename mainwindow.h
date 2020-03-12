@@ -7,7 +7,7 @@
 #include <QDateTime>
 #include <QMessageBox>
 #include "image.h"
-#include "CameraControl.h"
+#include "CameraPort.h"
 
 QT_BEGIN_NAMESPACE
 namespace Ui { class MainWindow; }
@@ -18,7 +18,7 @@ class MainWindow : public QMainWindow
     Q_OBJECT
 
 private:
-    // Member Variables
+    // Private Member Variables
     image img;
     CameraPort *port;
     QString dir;
@@ -29,12 +29,18 @@ private:
     bool isSingleFrame;
     bool isBurst;
 
-    // Member Functions
+    /*Begin of Test*/
+    int captureMode;
+    bool isSequence;
+    /*End of Test*/
+
+    // Private Member Functions
     void fillPortsInfo();
     void updateSettings();
     void showErrorMsg(int error);
 
 public:
+    // Public Member Fuctions
     MainWindow(QWidget *parent = nullptr);
     ~MainWindow();
 
@@ -59,9 +65,19 @@ private slots:
     void setDir();
     void getInputDir();
 
-    void modeSingleFrame();
-    void modeBurst();
-
+    void setSingleFrame();
+    void setBurst();
     void saveImage();
+
+    /*Begin of Test*/
+    void setModeSingle();
+    void setModeUnlim();
+    void setModeNFrm();
+    void setModeSqn();
+    void startCapture();
+    void cancelCapture();
+    /*End of Test*/
+
+    void updateButton();
 };
 #endif // MAINWINDOW_H

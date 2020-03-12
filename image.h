@@ -16,19 +16,29 @@
 class image
 {
 public:
-    image(QLabel *imageLabel = nullptr);
+    // public member funcitons
+    image(QLabel *imageLabel = nullptr, QLabel *stdevLabel = nullptr);
     ~image();
 
-    void startGrab(int hbin, int vbin);
-    void stopGrab();
+    int startGrab(int hbin, int vbin);
+    int stopGrab();
     void imagePlot();
-    void grabAndPlot();
+    int grabAndPlot();
     void saveSingleFrame(QString dir, int timeIntv, int nFile, float gain, int hBin, int vBin, float frameRate, float integTime);
     void saveBurst(QString dir, int nFrame, int nFile, float gain, int hBin, int vBin, float frameRate, float integTime);
     void save(QString filename, int nFrame, float gain, int hBin, int vBin, float frameRate, float integTime);
+
+    /*Begin of Test*/
+    void captureSingle(QString dir, float gain, float offset, int hbin, int vbin, float integTime, float frameRate);
+    void captureUnlim(QString dir, float gain, float offset, int hbin, int vbin, float integTime, float frameRate);
+    void captureNFrm(QString dir, int nFrm, float gain, float offset, int hbin, int vbin, float integTime, float frameRate);
+    /*End of Test*/
+
 private:
+    // private member variables
     QImage img;
     QLabel* imageLabel;
+    QLabel* stdevLabel;
 
     int error;
 
@@ -46,6 +56,7 @@ private:
 
     QThread* thread1;
 
+    // private member fuction
     void showError(int error);
 };
 
