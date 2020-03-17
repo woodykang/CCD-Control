@@ -38,12 +38,15 @@ MainWindow::MainWindow(QWidget *parent)
     connect(ui->btnModeSingle, SIGNAL(clicked()), this, SLOT(setModeSingle()));
     connect(ui->btnModeUnlim, SIGNAL(clicked()), this, SLOT(setModeUnlim()));
     connect(ui->btnModeNFrm, SIGNAL(clicked()), this, SLOT(setModeNFrm()));
-    connect(ui->btnSequnce, SIGNAL(clicked()), this, SLOT(setModeSqn()));
+    connect(ui->btnSequence, SIGNAL(clicked()), this, SLOT(setModeSqn()));
     connect(ui->btnStart, SIGNAL(clicked()), this, SLOT(startCapture()));
-    connect(ui->btnCancle, SIGNAL(clicked()), this, SLOT(cancelCapture()));
+    connect(ui->btnCancel, SIGNAL(clicked()), this, SLOT(cancelCapture()));
+
+    connect(&img, SIGNAL(image::endOfCapture()), this, SLOT(captureEnded()));
 
     captureMode = 0;
     isSequence = true;
+    isCapturing = false;
     /*End of Test*/
 
     fillPortsInfo();        // load available ports
@@ -347,6 +350,8 @@ void MainWindow::updateButton()
     ui->inputNFrm->setEnabled(captureMode == 2);
     ui->inputNIter->setEnabled(isSequence);
     ui->inputTIntv->setEnabled(isSequence);
+    ui->btnStart->setEnabled(!isCapturing);
+    ui->btnCancel->setEnabled(isCapturing);
     /*End of Test*/
 }
 
@@ -389,21 +394,21 @@ void MainWindow::showErrorMsg(int error)
 /*Begin of Test*/
 void MainWindow::setModeSingle()
 {
-    captureMode = 0;
+    captureMode = CAPTURE_MODE_SINGLE;
     updateButton();
 }
 
 
 void MainWindow::setModeUnlim()
 {
-    captureMode = 1;
+    captureMode = CAPTURE_MODE_UNLIM;
     updateButton();
 }
 
 
 void MainWindow::setModeNFrm()
 {
-    captureMode = 2;
+    captureMode = CAPTURE_MODE_NFRM;
     updateButton();
 }
 
@@ -420,35 +425,65 @@ void MainWindow::startCapture()
     // Get camera settings.
     float gain = port->getGain();
     float offset = port->getOffset();
-    int hbin = port->getHBin();
-    int vbin = port->getVBin();
+    int hBin = port->getHBin();
+    int vBin = port->getVBin();
     float integTime = port->getIntegTime();
     float frameRate = port->getFrameRate();
 
-    int nIter = ui->inputNIter->value();
-    int tIntv = ui->inputTIntv->value();
+    int nFrm = ui->inputNFrm->value();
 
+    int nIter = ui->inputNIter->value();    // number of iteration
+    int tIntv = ui->inputTIntv->value();    // time interval
 
-    switch (captureMode)
+    countIter = 0;                        // number of current iteration done
+
+    if (!isSequence)
     {
-    case 0:     // Single Frame Mode
-        img.captureSingle(dir, gain, offset, hbin, vbin, integTime, frameRate);
-        break;
-
-    case 1:     // Unlimited Mode
-        img.captureUnlim(dir, gain, offset, hbin, vbin, integTime, frameRate);
-        break;
-
-    case 2:     // Number of Frame Mode
-        int nFrm = ui->inputNFrm->value();
-        img.captureNFrm(dir, nFrm, gain, offset, hbin, vbin, integTime, frameRate);
-        break;
-
-    default:
-        break;
+        img.startCapture(captureMode, dir, nFrm, gain, offset, hBin, vBin, integTime, frameRate);
     }
+    
+    else if (isSequence)
+    {
+        // Using lambda function for 'connect'.
+        auto funcCapture = [=]()
+        {
+            img.startCapture(captureMode, dir, nFrm, gain, offset, hBin, vBin, integTime, frameRate);   // Start capture.
+            countIter++;      // Count the number of iteration.
+
+            if (countIter == nIter)    sequenceTimer.stop();      // Stop the timer when nIter has been done.
+        };
+
+        connect(&sequenceTimer, &QTimer::timeout, this, funcCapture);       // When the timer has timed out, carry out capture.
+
+        // Capture once before timer starts.
+        img.startCapture(captureMode, dir, nFrm, gain, offset, hBin, vBin, integTime, frameRate);
+        countIter++;
+
+        // Start the timer.
+        sequenceTimer.start(tIntv);
+    }
+    
+    isCapturing = true;
+    updateButton();
 }
 
 
-void MainWindow::cancelCapture() {}
+void MainWindow::cancelCapture()
+{
+    // Stop timer if timer is active.
+    if (sequenceTimer.isActive())   sequenceTimer.start();
+
+    // Cancel capturing.
+    img.cancelCapture();
+}
+
+void MainWindow::captureEnded()
+{
+    if (sequenceTimer.isActive()) return;   // Ignore if sequence has not ended.
+    else
+    {
+        isCapturing = false;
+        updateButton();
+    }
+}
 /*End of Test*/

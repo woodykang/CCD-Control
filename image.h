@@ -1,6 +1,10 @@
 #ifndef IMAGE_H
 #define IMAGE_H
 
+#define CAPTURE_MODE_SINGLE 0
+#define CAPTURE_MODE_UNLIM  1
+#define CAPTURE_MODE_NFRM   2
+
 #include <QObject>
 #include <QMessageBox>
 #include <QImage>
@@ -8,7 +12,6 @@
 #include <QThread>
 #include <QDateTime>
 #include <QTimer>
-#include <QElapsedTimer>
 #include "niimaq.h"
 #include "fitsio.h"
 #include "1M30P_Protocol.h"
@@ -27,12 +30,6 @@ public:
     void saveSingleFrame(QString dir, int timeIntv, int nFile, float gain, int hBin, int vBin, float frameRate, float integTime);
     void saveBurst(QString dir, int nFrame, int nFile, float gain, int hBin, int vBin, float frameRate, float integTime);
     void save(QString filename, int nFrame, float gain, int hBin, int vBin, float frameRate, float integTime);
-
-    /*Begin of Test*/
-    void captureSingle(QString dir, float gain, float offset, int hbin, int vbin, float integTime, float frameRate);
-    void captureUnlim(QString dir, float gain, float offset, int hbin, int vbin, float integTime, float frameRate);
-    void captureNFrm(QString dir, int nFrm, float gain, float offset, int hbin, int vbin, float integTime, float frameRate);
-    /*End of Test*/
 
 private:
     // private member variables
@@ -54,10 +51,28 @@ private:
 
     unsigned long bufferSize;
 
-    QThread* thread1;
+    QThread* threadGrab;
 
     // private member fuction
     void showError(int error);
+
+    /*Begin of Test*/
+public:
+    void startCapture(int mode, QString dir, int nFrm, float gain, float offset, int hBin, int vBin, float integTime, float frameRate);
+
+    void captureSingle(QString dir, float gain, float offset, int hBin, int vBin, float integTime, float frameRate);
+    void captureUnlim(QString dir, float gain, float offset, int hBin, int vBin, float integTime, float frameRate);
+    void captureNFrm(QString dir, int nFrm, float gain, float offset, int hBin, int vBin, float integTime, float frameRate);
+
+    void capture(QString dir, int nFrm, float gain, float offset, int hBin, int vBin, float frameRate, float integTime);
+    void cancelCapture();
+
+    QThread* threadCapture;
+    QTimer sequenceTimer;
+
+signals:
+    void endOfCapture();
+    /*End of Test*/
 };
 
 void showBox(QString content);

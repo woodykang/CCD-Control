@@ -32,6 +32,9 @@ private:
     /*Begin of Test*/
     int captureMode;
     bool isSequence;
+    bool isCapturing;
+    QTimer sequenceTimer;
+    int countIter;
     /*End of Test*/
 
     // Private Member Functions
@@ -76,6 +79,8 @@ private slots:
     void setModeSqn();
     void startCapture();
     void cancelCapture();
+
+    void captureEnded();
     /*End of Test*/
 
     void updateButton();

@@ -6,7 +6,7 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>665</width>
+    <width>666</width>
     <height>640</height>
    </rect>
   </property>
@@ -55,7 +55,7 @@
       <item row="0" column="1">
        <widget class="QTabWidget" name="tabWidget">
         <property name="currentIndex">
-         <number>1</number>
+         <number>0</number>
         </property>
         <widget class="QWidget" name="tabSettings">
          <attribute name="title">
@@ -440,7 +440,7 @@
               </widget>
              </item>
              <item row="0" column="0">
-              <widget class="QCheckBox" name="chkSequence">
+              <widget class="QCheckBox" name="btnSequence">
                <property name="text">
                 <string>Perfrom a sequence of capture</string>
                </property>
@@ -650,21 +650,21 @@
               </widget>
              </item>
              <item row="0" column="0">
-              <widget class="QRadioButton" name="labelSingleMode">
+              <widget class="QRadioButton" name="btnModeSingle">
                <property name="text">
                 <string>Single Frame</string>
                </property>
               </widget>
              </item>
              <item row="2" column="0">
-              <widget class="QRadioButton" name="labelNFrmMode">
+              <widget class="QRadioButton" name="btnModeNFrm">
                <property name="text">
                 <string>Number of Frames</string>
                </property>
               </widget>
              </item>
              <item row="1" column="0">
-              <widget class="QRadioButton" name="labelUnlimMode">
+              <widget class="QRadioButton" name="btnModeUnlim">
                <property name="text">
                 <string>Unlimited</string>
                </property>
@@ -737,8 +737,8 @@
     <rect>
      <x>0</x>
      <y>0</y>
-     <width>665</width>
-     <height>21</height>
+     <width>666</width>
+     <height>22</height>
     </rect>
    </property>
   </widget>

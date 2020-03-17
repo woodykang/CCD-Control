@@ -6,13 +6,15 @@
 // Constructor
 image::image(QLabel* imageLabel, QLabel* stdevLabel) : imageLabel(imageLabel), stdevLabel(stdevLabel)
 {
-    thread1 = nullptr;
+    threadGrab = nullptr;
+    threadCapture = nullptr;
 }
 
 // Destructor
 image::~image()
 {
-    if(thread1 != nullptr)  delete thread1;
+    if(threadGrab != nullptr)  delete threadGrab;
+    if (threadCapture != nullptr) delete threadCapture;
 }
 
 // Starts grabbing.
@@ -67,8 +69,8 @@ int image::startGrab(int hbin, int vbin)
     errChk(imgCreateBuffer(Sid, IMG_HOST_FRAME, bufferSize, &copiedBuffer));
 
     // Create a thread and run.
-    thread1 = QThread::create(std::bind(&image::grabAndPlot, this));
-    thread1->start();
+    threadGrab = QThread::create(std::bind(&image::grabAndPlot, this));
+    threadGrab->start();
 
     return 0;       // Function terminated successfully.
 
@@ -158,13 +160,13 @@ void image::imagePlot()
 // Returns 0 on success, 1 on failure.
 int image::stopGrab()
 {
-    thread1->requestInterruption();
-    if (!thread1->wait(3000))
+    threadGrab->requestInterruption();
+    if (!threadGrab->wait(3000))
     {
-        thread1->terminate();
-        thread1->wait();
+        threadGrab->terminate();
+        threadGrab->wait();
     }
-    thread1 = nullptr;
+    threadGrab = nullptr;
 
     errChk(imgSessionStopAcquisition(Sid));
 
@@ -326,19 +328,152 @@ void showBox(QString content)
 }
 
 /*Begin of Test*/
-void image::captureSingle(QString dir, float gain, float offset, int hbin, int vbin, float integTime, float frameRate)
+void image::startCapture(int mode, QString dir, int nFrm, float gain, float offset, int hBin, int vBin, float integTime, float frameRate)
 {
+    if (mode == CAPTURE_MODE_SINGLE)
+    {
+        captureSingle(dir, gain, offset, hBin, vBin, integTime, frameRate);
+    }
 
+    else if (mode == CAPTURE_MODE_UNLIM)
+    {
+        captureUnlim(dir, gain, offset, hBin, vBin, integTime, frameRate);
+    }
+
+    else if (mode == CAPTURE_MODE_NFRM)
+    {
+        captureNFrm(dir, nFrm, gain, offset, hBin, vBin, integTime, frameRate);
+    }
 }
 
-void image::captureUnlim(QString dir, float gain, float offset, int hbin, int vbin, float integTime, float frameRate)
+void image::captureSingle(QString dir, float gain, float offset, int hBin, int vBin, float integTime, float frameRate)
 {
-
+    int nFrm = 1;
+    threadCapture = QThread::create(std::bind(&image::capture, this, dir, nFrm, gain, offset, hBin, vBin, integTime, frameRate));
+    threadCapture->start();
 }
 
-void image::captureNFrm(QString dir, int nFrm, float gain, float offset, int hbin, int vbin, float integTime, float frameRate)
+void image::captureUnlim(QString dir, float gain, float offset, int hBin, int vBin, float integTime, float frameRate)
 {
+    int nFrm = -1;
+    threadCapture = QThread::create(std::bind(&image::capture, this, dir, nFrm, gain, offset, hBin, vBin, integTime, frameRate));
+    threadCapture->start();
+}
 
+void image::captureNFrm(QString dir, int nFrm, float gain, float offset, int hBin, int vBin, float integTime, float frameRate)
+{
+    threadCapture = QThread::create(std::bind(&image::capture, this, dir, nFrm, gain, offset, hBin, vBin, integTime, frameRate));
+    threadCapture->start();
+}
+
+void image::capture(QString dir, int nFrm, float gain, float offset, int hBin, int vBin, float frameRate, float integTime)
+{
+    fitsfile* fptr;                             // pointer to the fits file
+    int status = 0;                             // status > means error(s) occured
+    int decimalNum = 2;                         // number of digits after the decimal point 
+
+    int naxis = 2;                              // number of axes
+    long naxes[2];                              // size of each axis
+    long fpixel[2];                             // 1-based coordinate where to write the pixel value
+    long nelements;                             // number of elements in an image
+    naxes[0] = AcqWinWidth;                     // size of the first axis
+    naxes[1] = AcqWinHeight;                    // size of the second axis
+    nelements = naxes[0] * naxes[1];            // number of elements
+    fpixel[0] = 1;                              // write the pixel value starting from column 1
+    fpixel[1] = 1;                              // write the pixel value starting from column 2
+
+    int bufIndex = 0;           // index of the buffer
+    int waitForNext = 1;        // wait for the acquisition to be complete
+
+    unsigned char* buffer = nullptr;            // secondary buffer used for saving image
+
+    // Get the buffer size of session 'Sid'.
+    errChk(imgSessionGetBufferSize(Sid, &bufferSize));
+    // Create a buffer with size bufferSize.
+    errChk(imgCreateBuffer(Sid, IMG_HOST_FRAME, bufferSize, (void**)&buffer));
+
+    int i = 0;
+    bool condition = true;
+
+    const QString extension = ".fits";      // file extension
+    QDateTime time = QDateTime::currentDateTime();
+
+    while (condition)
+    {
+        QString filename = dir + "\/" + time.toString("yyyyMMdd_hhmmss") + "_" + QString::number(i) + extension;
+
+        // Create a fits file at 'fptr'.
+        fits_create_file(&fptr, (const char*)filename.toStdString().c_str(), &status);
+
+        // Copy the original buffer to secondary buffer.
+        errChk(imgSessionCopyBuffer(Sid, bufIndex, buffer, waitForNext));
+
+        // Convert 12-bit image to 16-bit image by bit-shifting.
+        // Bit-shifting is one of the fastest operation in C/C++.
+        unsigned int j = 0;
+        while (j < bufferSize)
+        {
+            unsigned short value = 0;
+
+            // The memory is little endian.
+            value += buffer[j];             // first byte
+            value += buffer[j + 1] << 8;    // second byte
+            value <<= 4;                    // shift 4 bits to make it 16-bit value
+            buffer[j] = (value & 0x00FF);
+            buffer[j + 1] = (value & 0xFF00) >> 8;
+            j += 2;                         // reading 2 bytes per iteration
+        }
+
+        fits_create_img(fptr, USHORT_IMG, naxis, naxes, &status);
+
+        // Write header.
+        QDateTime currentTime = QDateTime::currentDateTime();           // time of observation
+        fits_write_key_str(fptr, "TIME_OBS", (const char*)currentTime.toString("yyyy.MM.dd hh:mm:ss.zz").toStdString().c_str(), "Observing Time", &status);
+        fits_write_key_flt(fptr, "EXPOSURE", integTime, decimalNum, "milliseconds", &status);       // exposure
+        fits_write_key_flt(fptr, "GAIN", gain, decimalNum, "relative ADU/electrons", &status);      // gain
+        fits_write_key_flt(fptr, "OFFSET", offset, decimalNum, "DN", &status);                      // offset
+        fits_write_key_flt(fptr, "RATE", frameRate, decimalNum, "frames per second", &status);      // frame rate
+        fits_write_key_log(fptr, "HBIN", hBin, "horizontal bin", &status);                          // horizontal bin
+        fits_write_key_log(fptr, "VBIN", vBin, "vertical bin", &status);                            // vertical bin
+
+        fits_write_pix(fptr, TUSHORT, fpixel, nelements, buffer, &status);  // Write pixel value.
+
+        fits_close_file(fptr, &status);                                     // Close file.
+
+        switch (nFrm)
+        {
+        case -1:    // Unlimited
+            condition = true;
+            break;
+
+        default:    // Number of Frames or Single Frame (if nFrm == 1)
+            i++;
+            condition = i < nFrm;
+            break;
+        }
+
+        if (QThread::currentThread()->isInterruptionRequested()) break;
+    }
+
+    errChk(imgDisposeBuffer(buffer));                                   // Dispose buffer.
+    emit endOfCapture();            // Emit signal, which is received by the MainWindow.
+
+Error:
+    if (error < 0)   showError(error);
+    return;
+}
+
+void image::cancelCapture()
+{
+    // Stop thread.
+    threadCapture->requestInterruption();
+
+    if (!threadCapture->wait(3000))     // If the thread does not stop within 3000 msec, force termination.
+    {
+        threadCapture->terminate();
+        threadCapture->wait();
+    }
+    threadGrab = nullptr;
 }
 
 /*End of Test*/
